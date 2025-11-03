@@ -1,3 +1,7 @@
 export async function GET() {
-  return Response.json({ result: "ok" });
+  return Response.json({
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+  });
 }
