@@ -1,0 +1,155 @@
+name: Deploy Preview
+
+on:
+  pull_request:
+    types: ["opened", "reopened", "synchronize"]
+    branches: ["master"]
+
+jobs:
+  deploy-preview:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Deploy preview
+        run: |
+          BRANCH=${GITHUB_HEAD_REF}
+          SAFE_BRANCH=$(echo "$BRANCH" | sed 's/[^a-zA-Z0-9-]/-/g')
+          PORT=$((6100 + ($(echo -n "$SAFE_BRANCH" | cksum | cut -d' ' -f1) % 99 + 1)))
+          SUBDOMAIN="$SAFE_BRANCH.duolingo-clone.poltoradnev.ru"
+          URL="https://$SUBDOMAIN"
+
+          echo "Деплой $BRANCH -> $SUBDOMAIN (порт $PORT)"
+          echo "$SAFE_BRANCH"
+
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} '
+          set -e
+
+          BRANCH='$BRANCH'
+          SAFE_BRANCH='$SAFE_BRANCH'
+          PORT='$PORT'
+          PROJECT_DIR="/var/www/preview-duolingo-$SAFE_BRANCH"
+
+          echo "BRANCH: $BRANCH"
+          echo "SAFE_BRANCH $SAFE_BRANCH"
+          echo "PORT $PORT"
+          echo "PROJECT_DIR: $PROJECT_DIR"
+
+          mkdir -p "$PROJECT_DIR"
+          cd "$PROJECT_DIR"
+
+          if [ ! -d ".git" ]; then
+            git init
+            git remote add origin https://github.com/lifeisbeautifu1/Duolingo.git
+          fi
+
+          git fetch origin "$BRANCH"
+          git reset --hard origin/"$BRANCH"
+
+          docker build -t preview-duolingo-$SAFE_BRANCH .
+
+          docker stop preview-duolingo-$SAFE_BRANCH || true
+          docker rm preview-duolingo-$SAFE_BRANCH || true
+
+          docker run -d \
+            --name preview-duolingo-$SAFE_BRANCH \
+            -p 127.0.0.1:$PORT:8080 \
+            -e PORT=8080 \
+            --restart unless-stopped \
+            preview-duolingo-$SAFE_BRANCH
+
+
+          sleep 15
+
+          echo "Проверка health check"
+
+          sleep 15
+
+          for i in {1..10}; do
+            if curl -s http://127.0.0.1:$PORT/api/healthcheck | grep -q "ok"; then
+              echo "Health check пройден"
+              break
+            else
+              echo "Ожидание запуска сервера... (попытка $i)"
+              sleep 3
+            fi
+          done
+
+          if ! curl -s http://127.0.0.1:$PORT/api/healthcheck | grep -q "ok"; then
+            echo "Health check не пройден. Откат..."
+            docker stop preview-duolingo-$SAFE_BRANCH
+            docker rm preview-duolingo-$SAFE_BRANCH
+            exit 1
+          fi
+
+          NGINX_PREVIEW_FILE="/etc/nginx/conf.d/preview-next.map"
+          PATTERN="~^$SAFE_BRANCH\\.duolingo-clone\\.poltoradnev\\.ru\$"
+
+          sudo grep -Fv "$PATTERN" "$NGINX_PREVIEW_FILE" | sudo tee "$NGINX_PREVIEW_FILE.tmp" > /dev/null
+
+          echo "$PATTERN $PORT;" | sudo tee -a "$NGINX_PREVIEW_FILE.tmp" > /dev/null
+
+          sudo mv "$NGINX_PREVIEW_FILE.tmp" "$NGINX_PREVIEW_FILE"
+
+          if sudo nginx -t; then
+            sudo systemctl reload nginx
+            echo "Nginx обновлен: $SUBDOMAIN -> port $PORT"
+          else
+            echo "Error in Nginx config"
+            exit 1
+          fi
+
+          echo "Preview ready: $URL"
+          '
+
+      - name: Comment preview URL
+        if: success()
+        run: |
+          BRANCH=${{ github.event.pull_request.head.ref }}
+          SAFE_BRANCH=$(echo "$BRANCH" | sed 's/[^a-zA-Z0-9-]/-/g')
+          URL="https://$SAFE_BRANCH.duolingo-clone.poltoradnev.ru"
+          COMMENT="**Preview deployed**\n\n [Open preview]($URL)\n\nAuto-deployed via Github Actions"
+          REQUEST_URL="https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments"
+
+          echo "Получаем информацию о пользователе..."
+
+          USER_RESPONSE=$(curl -H "Authorization: Bearer ${{ secrets.GH_PAT }}" https://api.github.com/user)
+          GH_USER=$(echo "$USER_RESPONSE" | jq -r '.login // empty')
+
+          if [ -z "$GH_USER" ]; then
+            echo "Не удалось получить логин пользователя. Ответ от API:"
+            echo "$USER_RESPONSE"
+            exit 1
+          fi
+
+          echo "Текущий пользователь: $GH_USER"
+
+          echo "Проверяем существующие комментарии..."
+
+          COMMENTS_RESPONSE=$(curl -H "Authorization: Bearer ${{ secrets.GH_PAT }}" "$REQUEST_URL")
+
+          if echo "$COMMENTS_RESPONSE" | jq -e '.[]' >/dev/null 2>&1; then
+            PREVIEW_EXISTS=$(echo "$COMMENTS_RESPONSE" | \
+              jq -r --arg user "$GH_USER" --arg text "**Preview deployed**" \
+              '.[] | select(.user.login == $user) | .body' | \
+              grep -q "$text"; echo $?)
+          else
+            PREVIEW_EXISTS=1
+          fi
+
+          if [ $PREVIEW_EXISTS -eq 0 ]; then
+            echo "Комментарий с preview уже существует"
+          else
+            echo "Комментарий не найден. Добавляем новый..."
+            curl -X POST \
+              -H "Authorization: Bearer ${{ secrets.GH_PAT }}" \
+              -H "Accept: application/vnd.github.v3+json" \
+              "$REQUEST_URL" \
+              -d "{\"body\": \"$COMMENT\"}"
+          fi

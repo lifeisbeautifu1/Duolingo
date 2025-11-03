@@ -1,0 +1,62 @@
+name: Cleanup Preview
+
+on:
+  pull_request:
+    types: ["closed"]
+    branches: ["master"]
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Stop and remove
+        run: |
+          BRANCH=${GITHUB_HEAD_REF}
+          SAFE_BRANCH=$(echo "$BRANCH" | sed 's/[^a-zA-Z0-9-]/-/g')
+
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} '
+          set -e
+
+          BRANCH='$BRANCH'
+          SAFE_BRANCH='$SAFE_BRANCH'
+          PROJECT_DIR="/var/www/preview-duolingo-$SAFE_BRANCH"
+          NGINX_PREVIEW_FILE="/etc/nginx/conf.d/preview-next.map"
+          PATTERN="~^$SAFE_BRANCH\\.duolingo-clone\\.poltoradnev\\.ru\$"
+
+          echo "Очистка preview для $SAFE_BRANCH"
+
+          docker stop preview-duolingo-$SAFE_BRANCH || true
+          docker rm preview-duolingo-$SAFE_BRANCH || true
+          docker rmi preview-duolingo-$SAFE_BRANCH || true
+
+          rm -rf $PROJECT_DIR
+
+          if [ -f "$NGINX_PREVIEW_FILE" ]; then
+            sudo cp "$NGINX_PREVIEW_FILE" "$TEMP_CONF"
+
+            sudo grep -Fv "$PATTERN" "$TEMP_CONF" | sudo tee "$NGINX_PREVIEW_FILE.tmp" > /dev/null
+
+            if [ ! -s "$NGINX_PREVIEW_FILE.tmp" ]; then
+              echo "Ошибка: пустой конфиг после удаления"
+              exit 1
+            fi
+
+            if sudo nginx -t; then
+              sudo mv "$NGINX_PREVIEW_FILE.tmp" "$NGINX_PREVIEW_FILE"
+              sudo systemctl reload nginx
+              echo "Nginx обновлен: $SAFE_BRANCH удален"
+            else
+              echo "Ошибка в NGINX конфиге после очистки"
+              exit 1
+            fi
+          else
+            echo "Файл $NGINX_PREVIEW_FILE не найден"
+          fi
+
+          echo "Очистка завершена для $SAFE_BRANCH"
+          '
