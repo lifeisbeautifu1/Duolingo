@@ -26,6 +26,7 @@ jobs:
           SAFE_BRANCH='$SAFE_BRANCH'
           PROJECT_DIR="/var/www/preview-duolingo-$SAFE_BRANCH"
           NGINX_PREVIEW_FILE="/etc/nginx/conf.d/preview-next.map"
+          TEMP_CONF="/tmp/preview-next.tmp"
           PATTERN="~^$SAFE_BRANCH\\.duolingo-clone\\.poltoradnev\\.ru\$"
 
           echo "Очистка preview для $SAFE_BRANCH"
