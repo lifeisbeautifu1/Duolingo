@@ -1,0 +1,89 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Deploy to VPS
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} '
+          set -e
+
+          cd ../home/Duolingo
+          ls -la
+
+          ss -tuln | grep ":808[01]" | grep "LISTEN" | grep -oE ":[0-9]+" | cut -d ":" -f 2
+          CURRENT_PORT=$(ss -tuln | grep ":808[01]" | grep "LISTEN" | grep -oE ":[0-9]+" | cut -d ":" -f 2)
+          echo "$CURRENT_PORT"
+
+          if [ "$CURRENT_PORT" = "8080" ]; then
+            NEW_PORT=8081
+          elif [ "$CURRENT_PORT" = "8081" ]; then
+            NEW_PORT=8080
+          else
+            echo "Нет активного контейнера на 8080 или 8081. Запускаем 8080."
+            NEW_PORT=8080
+          fi
+
+          echo "Текущий порт: ${CURRENT_PORT}, новый порт: ${NEW_PORT}"
+
+          git pull origin master
+
+          echo "Сборка Docker-образа..."
+
+          docker build -t frontend-app:latest .
+
+          echo "Запускаем контейнер на порту $NEW_PORT"
+
+          docker run -d \
+            --name frontend-app-$NEW_PORT \
+            -p 127.0.0.1:$NEW_PORT:8080 \
+            -e PORT=8080 \
+            --restart unless-stopped \
+            frontend-app:latest
+
+          echo "Проверка health check"
+          sleep 5
+
+          for i in {1..10}; do
+            if curl -s http://127.0.0.1:$NEW_PORT/api/healthcheck | grep -q "ok"; then
+              echo "Health check пройден"
+              break
+            else
+              echo "Ожидание запуска сервера... (попытка $i)"
+              sleep 3
+            fi
+          done
+
+          if ! curl -s http://127.0.0.1:$NEW_PORT/api/healthcheck | grep -q "ok"; then
+            echo "Health check не пройден. Откат..."
+            docker stop frontend-app-$NEW_PORT
+            docker rm frontend-app-$NEW_PORT
+            exit 1
+          fi
+
+          if [ -n "$CURRENT_PORT" ]; then
+            echo "Остановка старого контейнера на порту $CURRENT_PORT"
+            docker stop frontend-app-$CURRENT_PORT || true
+            docker rm frontend-app-$CURRENT_PORT || true
+          fi
+
+          echo "Очистка неиспользуемых образов и контейнеров"
+          docker system prune -f
+          docker image prune -f -a
+
+          echo "Деплой завершен. Новый сервер на порту $NEW_PORT"
+          '
