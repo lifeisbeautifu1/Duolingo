@@ -22,7 +22,7 @@ jobs:
           BRANCH=${GITHUB_HEAD_REF}
           SAFE_BRANCH=$(echo "$BRANCH" | sed 's/[^a-zA-Z0-9-]/-/g')
           PORT=$((6100 + ($(echo -n "$SAFE_BRANCH" | cksum | cut -d' ' -f1) % 99 + 1)))
-          SUBDOMAIN="$SAFE_BRANCH.duolingo-clone.poltoradnev.ru"
+          SUBDOMAIN="$SAFE_BRANCH-duolingo-clone.poltoradnev.ru"
           URL="https://$SUBDOMAIN"
 
           echo "Деплой $BRANCH -> $SUBDOMAIN (порт $PORT)"
@@ -89,7 +89,7 @@ jobs:
           fi
 
           NGINX_PREVIEW_FILE="/etc/nginx/conf.d/preview-next.map"
-          PATTERN="~^$SAFE_BRANCH\\.duolingo-clone\\.poltoradnev\\.ru\$"
+          PATTERN="~^$SAFE_BRANCH-duolingo-clone\\.poltoradnev\\.ru\$"
 
           sudo grep -Fv "$PATTERN" "$NGINX_PREVIEW_FILE" | sudo tee "$NGINX_PREVIEW_FILE.tmp" > /dev/null
 
@@ -113,7 +113,7 @@ jobs:
         run: |
           BRANCH=${{ github.event.pull_request.head.ref }}
           SAFE_BRANCH=$(echo "$BRANCH" | sed 's/[^a-zA-Z0-9-]/-/g')
-          URL="https://$SAFE_BRANCH.duolingo-clone.poltoradnev.ru"
+          URL="https://$SAFE_BRANCH-duolingo-clone.poltoradnev.ru"
           COMMENT="**Preview deployed**\n\n [Open preview]($URL)\n\nAuto-deployed via Github Actions"
           REQUEST_URL="https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments"
 
