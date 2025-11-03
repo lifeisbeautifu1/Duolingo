@@ -40,15 +40,10 @@ jobs:
           if [ -f "$NGINX_PREVIEW_FILE" ]; then
             sudo cp "$NGINX_PREVIEW_FILE" "$TEMP_CONF"
 
-            sudo grep -Fv "$PATTERN" "$TEMP_CONF" | sudo tee "$NGINX_PREVIEW_FILE.tmp" > /dev/null
-
-            if [ ! -s "$NGINX_PREVIEW_FILE.tmp" ]; then
-              echo "Ошибка: пустой конфиг после удаления"
-              exit 1
-            fi
+            sudo grep -Fv "$PATTERN" "$TEMP_CONF" | sudo tee "$NGINX_PREVIEW_FILE.new" > /dev/null
 
             if sudo nginx -t; then
-              sudo mv "$NGINX_PREVIEW_FILE.tmp" "$NGINX_PREVIEW_FILE"
+              sudo mv "$NGINX_PREVIEW_FILE.new" "$NGINX_PREVIEW_FILE"
               sudo systemctl reload nginx
               echo "Nginx обновлен: $SAFE_BRANCH удален"
             else
