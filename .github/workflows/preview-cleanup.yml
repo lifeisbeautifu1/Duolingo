@@ -26,7 +26,6 @@ jobs:
           SAFE_BRANCH='$SAFE_BRANCH'
           PROJECT_DIR="/var/www/preview-duolingo-$SAFE_BRANCH"
           NGINX_PREVIEW_FILE="/etc/nginx/conf.d/preview-next.map"
-          TEMP_CONF="/tmp/preview-next.tmp"
           PATTERN="~^$SAFE_BRANCH\\.duolingo-clone\\.poltoradnev\\.ru\$"
 
           echo "Очистка preview для $SAFE_BRANCH"
@@ -38,12 +37,10 @@ jobs:
           rm -rf $PROJECT_DIR
 
           if [ -f "$NGINX_PREVIEW_FILE" ]; then
-            sudo cp "$NGINX_PREVIEW_FILE" "$TEMP_CONF"
-
-            sudo grep -Fv "$PATTERN" "$TEMP_CONF" | sudo tee "$NGINX_PREVIEW_FILE.new" > /dev/null
+            sudo grep -Fv "$PATTERN" "$NGINX_PREVIEW_FILE" | sudo tee "$NGINX_PREVIEW_FILE.tmp" > /dev/null
 
             if sudo nginx -t; then
-              sudo mv "$NGINX_PREVIEW_FILE.new" "$NGINX_PREVIEW_FILE"
+              sudo mv "$NGINX_PREVIEW_FILE.tmp" "$NGINX_PREVIEW_FILE"
               sudo systemctl reload nginx
               echo "Nginx обновлен: $SAFE_BRANCH удален"
             else
