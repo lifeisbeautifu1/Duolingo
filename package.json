@@ -1,5 +1,6 @@
 {
   "name": "duolingo",
+  "type": "module",
   "private": true,
   "scripts": {
     "dev": "next dev -p 8080",
