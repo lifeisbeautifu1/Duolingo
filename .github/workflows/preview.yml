@@ -52,6 +52,13 @@ jobs:
           git fetch origin "$BRANCH"
           git reset --hard origin/"$BRANCH"
 
+          touch .env
+          echo "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ secrets.CLERK_PUBLISHABLE_KEY_DEV }}" > .env
+          echo "CLERK_SECRET_KEY=${{ secrets.CLERK_SECRET_KEY_DEV }}" >> .env
+          echo "NEXT_PUBLIC_CLERK_SIGN_IN_FORCE_REDIRECT_URL=/learn" >> .env
+          echo "NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL=/learn" >> .env
+
+
           docker build -t preview-duolingo-$SAFE_BRANCH .
 
           docker stop preview-duolingo-$SAFE_BRANCH || true
