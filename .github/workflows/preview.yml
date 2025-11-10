@@ -57,6 +57,7 @@ jobs:
           echo "CLERK_SECRET_KEY=${{ secrets.CLERK_SECRET_KEY_PROD }}" >> .env
           echo "NEXT_PUBLIC_CLERK_SIGN_IN_FORCE_REDIRECT_URL=/learn" >> .env
           echo "NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL=/learn" >> .env
+          echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
 
 
           docker build -t preview-duolingo-$SAFE_BRANCH .
@@ -90,6 +91,8 @@ jobs:
 
           if ! curl -s http://127.0.0.1:$PORT/api/healthcheck | grep -q "ok"; then
             echo "Health check не пройден. Откат..."
+            echo "Logs"
+            docker logs preview-duolingo-$SAFE_BRANCH
             docker stop preview-duolingo-$SAFE_BRANCH
             docker rm preview-duolingo-$SAFE_BRANCH
             exit 1

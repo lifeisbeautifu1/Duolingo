@@ -4,3 +4,17 @@
 # Duolingo clone
 
 > Note, this project is under construction 🚧 🏗️ ⛔
+
+To start project in dev mode run the following commands:
+
+For database:
+
+```
+docker-compose up -d
+```
+
+For web app:
+
+```
+npm run dev
+```

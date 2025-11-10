@@ -1,7 +1,9 @@
 import { List } from "./list";
-import courses from "./courses.json";
+import { getCourses } from "@/db/queries";
 
-export default function CoursesPage() {
+export default async function CoursesPage() {
+  const courses = await getCourses();
+
   return (
     <div className="h-full max-w-[912px] px-3 mx-auto">
       <h1 className="text-2xl font-bold text-neutral-700">

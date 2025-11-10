@@ -34,7 +34,7 @@ export const SidebarItem = ({
           height={32}
           width={32}
         />
-        {label}
+        <span className="mt-1">{label}</span>
       </Link>
     </Button>
   );
