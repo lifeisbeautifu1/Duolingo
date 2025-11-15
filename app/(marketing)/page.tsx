@@ -8,7 +8,7 @@ import {
   SignUpButton,
   SignInButton,
 } from "@clerk/nextjs";
-import { Loader } from "lucide-react";
+import { Loader } from "@/components/loader";
 import { Button } from "@/components/ui/button";
 
 export default function Home() {
@@ -24,7 +24,7 @@ export default function Home() {
         </h1>
         <div className="flex flex-col items-center gap-y-3 max-w-[330px] w-full">
           <ClerkLoading>
-            <Loader className="h-5 w-5 text-muted-foreground animate-spin" />
+            <Loader />
           </ClerkLoading>
           <ClerkLoaded>
             <SignedOut>

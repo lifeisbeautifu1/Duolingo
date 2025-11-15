@@ -6,7 +6,7 @@ import {
   SignInButton,
   UserButton,
 } from "@clerk/nextjs";
-import { Loader } from "lucide-react";
+import { Loader } from "@/components/loader";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import Image from "next/image";
@@ -16,7 +16,7 @@ export const Header = () => {
     <header className="h-20 w-full border-b-2 border-slate-200 px-4">
       <div className="lg:max-w-5xl mx-auto flex items-center justify-between h-full">
         <Link
-          href="/"
+          href="/learn"
           className="flex items-center gap-x-3"
         >
           <Image
@@ -30,7 +30,7 @@ export const Header = () => {
           </span>
         </Link>
         <ClerkLoading>
-          <Loader className="h-5 w-5 text-muted-foreground animate-spin" />
+          <Loader />
         </ClerkLoading>
         <ClerkLoaded>
           <SignedIn>
