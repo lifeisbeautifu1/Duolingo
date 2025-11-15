@@ -5,7 +5,7 @@ import {
   ClerkLoaded,
   UserButton,
 } from "@clerk/nextjs";
-import { Loader } from "lucide-react";
+import { Loader } from "@/components/loader";
 import { cn } from "@/lib/utils";
 import { SidebarItem } from "@/components/sidebar-item";
 
@@ -59,7 +59,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
       </div>
       <div className="pt-4">
         <ClerkLoading>
-          <Loader className="h-5 w-5 text-muted-foreground animate-spin" />
+          <Loader />
         </ClerkLoading>
         <ClerkLoaded>
           <UserButton />

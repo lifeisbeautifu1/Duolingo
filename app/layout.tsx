@@ -1,6 +1,7 @@
 import { ClerkProvider } from "@clerk/nextjs";
 import type { ReactNode } from "react";
 import type { Metadata } from "next";
+import { Toaster } from "sonner";
 import { Nunito } from "next/font/google";
 import "./globals.css";
 
@@ -19,7 +20,10 @@ export default function RootLayout({
   return (
     <ClerkProvider>
       <html lang="en">
-        <body className={`antialiased ${fontFamily.className}`}>
+        <body
+          className={`antialiased ${fontFamily.className}`}
+        >
+          <Toaster />
           {children}
         </body>
       </html>
